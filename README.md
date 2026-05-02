@@ -68,6 +68,35 @@ seguimiento_leads/
 
 ## Tests
 
+El juego de pruebas cubre auth, JWT, leads, plantillas, seguimientos, contactos, casos límite y aislamiento por tenant. Se ejecuta con cobertura mínima del 85%.
+
+### Ejecución local (sin Docker)
+
+```bash
+make install      # crea backend/.venv y descarga dependencias
+make test         # ejecuta toda la suite con cobertura
+make test-fast    # solo tests, sin cobertura (más rápido)
+```
+
+Tras `make test`, el informe HTML está en `backend/htmlcov/index.html`.
+
+### Ejecución dentro de Docker
+
 ```bash
 docker compose exec backend pytest
 ```
+
+### Ejecución de un test concreto
+
+```bash
+cd backend && .venv/bin/pytest tests/test_leads.py::TestLeadCRUD -v
+```
+
+### CI
+
+Cada push a `main` o a una rama `claude/**` ejecuta:
+
+- Backend: `pytest` con cobertura
+- Frontend: `tsc --noEmit` y `vite build`
+
+Definido en `.github/workflows/ci.yml`.
