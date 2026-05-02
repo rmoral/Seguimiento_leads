@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -11,7 +11,10 @@ class Contact(Base, TimestampMixin):
     """Each interaction (email sent/received, call, etc.) with a lead."""
 
     __tablename__ = "contacts"
-    __table_args__ = (Index("ix_contacts_lead_sent", "lead_id", "sent_at"),)
+    __table_args__ = (
+        Index("ix_contacts_lead_sent", "lead_id", "sent_at"),
+        UniqueConstraint("lead_id", "external_id", name="uq_contact_external"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     lead_id: Mapped[int] = mapped_column(ForeignKey("leads.id", ondelete="CASCADE"), nullable=False)
@@ -21,5 +24,10 @@ class Contact(Base, TimestampMixin):
     subject: Mapped[str | None] = mapped_column(String(300))
     body: Mapped[str | None] = mapped_column(Text)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    # Provider integration (Phase 2). external_id is unique per lead so syncs
+    # are idempotent and conversations can be threaded.
+    external_id: Mapped[str | None] = mapped_column(String(255))
+    thread_id: Mapped[str | None] = mapped_column(String(255))
 
     lead: Mapped["Lead"] = relationship(back_populates="contacts")  # noqa: F821

@@ -4,7 +4,8 @@ Aplicación de gestión y seguimiento de leads con plantillas de correo, recorda
 
 ## Estado
 
-**Fase 1 — Esqueleto + CRUD de leads** *(en curso)*
+**Fase 1 — Esqueleto + CRUD de leads** *(completada)*
+**Fase 2 — Integración Gmail** *(completada)*
 
 - [x] Backend FastAPI + PostgreSQL + Alembic
 - [x] Modelos: Tenant, User, Lead, Contact, Template, FollowUp, EmailAccount
@@ -12,9 +13,12 @@ Aplicación de gestión y seguimiento de leads con plantillas de correo, recorda
 - [x] CRUD de leads, plantillas, seguimientos y contactos
 - [x] Frontend React + Tailwind con login y tabla de leads
 - [x] Docker Compose listo
+- [x] OAuth con Gmail, tokens cifrados con Fernet
+- [x] Envío de correos desde la cuenta conectada (genera Contact saliente)
+- [x] Sincronización del buzón: empareja por dirección de correo, deduplica por message_id, promueve estado del lead a `responded`
+- [x] Abstracción `EmailProvider` lista para añadir Outlook/SMTP
 
 Siguientes fases:
-- **Fase 2** — Integración Gmail (OAuth, envío y lectura de correos)
 - **Fase 3** — Recordatorios automáticos vía Celery
 - **Fase 4** — Clasificación y propuestas de respuesta con Claude
 
@@ -26,6 +30,7 @@ Siguientes fases:
 | DB | PostgreSQL 16 |
 | Frontend | React 18 + TypeScript + Vite + Tailwind |
 | Auth | JWT (HS256) |
+| Email | Gmail API (extensible vía `EmailProvider`); tokens cifrados con Fernet |
 | Workers (fase 3) | Celery + Redis |
 | IA (fase 4) | Claude API |
 | Despliegue | Docker Compose (AWS EC2) |
@@ -38,11 +43,41 @@ Cada usuario pertenece a un `Tenant`. Todas las tablas de negocio incluyen `tena
 
 ```bash
 cp .env.example .env
+# Genera la clave de cifrado (obligatoria en producción):
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Pega el valor en ENCRYPTION_KEY dentro de .env
 docker compose up --build
 ```
 
 - API: http://localhost:8000 (docs en `/docs`)
 - Frontend: http://localhost:5173
+
+## Configurar Gmail OAuth (Fase 2)
+
+Para conectar cuentas de Gmail necesitas credenciales OAuth en Google Cloud:
+
+1. Entra en https://console.cloud.google.com/ y crea un proyecto.
+2. **APIs y servicios → Biblioteca**: habilita **Gmail API**.
+3. **APIs y servicios → Pantalla de consentimiento OAuth**: configura el consentimiento (modo *External* en pruebas, añade tu correo como tester). Scopes mínimos:
+   - `https://www.googleapis.com/auth/gmail.send`
+   - `https://www.googleapis.com/auth/gmail.readonly`
+   - `openid` y `userinfo.email`
+4. **APIs y servicios → Credenciales → Crear credenciales → ID de cliente OAuth → Aplicación web**:
+   - URI de redirección autorizada (local): `http://localhost:8000/email-accounts/gmail/callback`
+   - URI de redirección autorizada (producción): `https://TU_DOMINIO/email-accounts/gmail/callback`
+5. Copia el *Client ID* y *Client Secret* a tu `.env`:
+   ```
+   GMAIL_CLIENT_ID=xxx.apps.googleusercontent.com
+   GMAIL_CLIENT_SECRET=xxx
+   GMAIL_REDIRECT_URI=http://localhost:8000/email-accounts/gmail/callback
+   OAUTH_FRONTEND_REDIRECT=http://localhost:5173/settings
+   ```
+
+Luego en la app: **Ajustes → Conectar Gmail**. Tras autorizar quedará listada y podrás:
+- **Sincronizar**: descarga correos nuevos del buzón y los asocia a leads cuya dirección coincida.
+- Desde un lead, **Enviar**: envía un correo (queda registrado como `Contact` saliente).
+
+Las credenciales OAuth se almacenan cifradas (Fernet) usando `ENCRYPTION_KEY`. **Nunca** las comitas.
 
 ## Estructura
 

@@ -10,6 +10,8 @@ class ContactBase(BaseModel):
     subject: str | None = Field(default=None, max_length=300)
     body: str | None = None
     sent_at: datetime | None = None
+    external_id: str | None = Field(default=None, max_length=255)
+    thread_id: str | None = Field(default=None, max_length=255)
 
 
 class ContactCreate(ContactBase):

@@ -130,3 +130,71 @@ def future_iso():
         return (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
 
     return _at
+
+
+# ---------- Fake email provider ----------
+
+
+class FakeEmailProvider:
+    """In-memory EmailProvider used by tests in place of Gmail."""
+
+    name = "fake"
+
+    def __init__(self):
+        self.sent: list[dict] = []
+        self._messages: list = []
+        self._exchange_email = "user@gmail.com"
+        self._exchange_tokens: dict = {"token": "fake-access", "refresh_token": "fake-refresh"}
+        self.next_message_id = 1
+
+    # --- OAuth ---
+    def authorization_url(self, state: str) -> str:
+        return f"https://accounts.fake/auth?state={state}"
+
+    def exchange_code(self, code: str) -> tuple[str, dict]:
+        if code == "BAD":
+            raise RuntimeError("invalid grant")
+        return self._exchange_email, dict(self._exchange_tokens)
+
+    # --- Messaging ---
+    def send_message(self, tokens, from_email, to, subject, body) -> str:
+        self.sent.append(
+            {"tokens": tokens, "from": from_email, "to": to, "subject": subject, "body": body}
+        )
+        mid = f"msg-{self.next_message_id}"
+        self.next_message_id += 1
+        return mid
+
+    def fetch_messages(self, tokens, since=None, max_results=50):
+        return list(self._messages)
+
+    # --- Test helpers ---
+    def queue_message(self, msg) -> None:
+        self._messages.append(msg)
+
+    def reset(self) -> None:
+        self.sent.clear()
+        self._messages.clear()
+
+
+@pytest.fixture()
+def fake_provider(monkeypatch) -> FakeEmailProvider:
+    """A FakeEmailProvider wired into both API routers and the messaging service."""
+    from app.api import email_accounts as ea_router
+    from app.api import messages as msg_router
+
+    fake = FakeEmailProvider()
+    monkeypatch.setattr(ea_router, "get_provider", lambda name: fake)
+    monkeypatch.setattr(msg_router, "get_provider", lambda name: fake)
+    # Also expose "fake" as a supported provider
+    monkeypatch.setattr(
+        ea_router, "supported_providers", lambda: ["gmail", "fake"]
+    )
+    return fake
+
+
+@pytest.fixture()
+def gmail_creds(monkeypatch):
+    """Pretend Gmail OAuth is configured for tests that need /authorize to succeed."""
+    monkeypatch.setattr("app.core.config.settings.GMAIL_CLIENT_ID", "test-client-id")
+    monkeypatch.setattr("app.core.config.settings.GMAIL_CLIENT_SECRET", "test-secret")

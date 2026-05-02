@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { LeadsPage } from "./pages/Leads";
 import { LoginPage } from "./pages/Login";
+import { SettingsPage } from "./pages/Settings";
 
 export default function App() {
   return (
@@ -13,6 +14,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <LeadsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         }
       />

@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { createLead, deleteLead, type Lead, listLeads, updateLead } from "../api/leads";
 import { Layout } from "../components/Layout";
+import { SendEmailModal } from "../components/SendEmailModal";
 
 const STATUS_OPTIONS = ["new", "contacted", "responded", "negotiating", "won", "lost"] as const;
 
@@ -12,6 +13,7 @@ export function LeadsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [emailing, setEmailing] = useState<Lead | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -189,7 +191,13 @@ export function LeadsPage() {
                 <td className="px-4 py-2 text-sm text-slate-500">
                   {new Date(lead.created_at).toLocaleDateString()}
                 </td>
-                <td className="px-4 py-2 text-right">
+                <td className="px-4 py-2 text-right space-x-3">
+                  <button
+                    onClick={() => setEmailing(lead)}
+                    className="text-slate-700 hover:underline text-sm"
+                  >
+                    Enviar
+                  </button>
                   <button
                     onClick={() => onDelete(lead)}
                     className="text-red-600 hover:underline text-sm"
@@ -202,6 +210,14 @@ export function LeadsPage() {
           </tbody>
         </table>
       </div>
+
+      {emailing && (
+        <SendEmailModal
+          lead={emailing}
+          onClose={() => setEmailing(null)}
+          onSent={refresh}
+        />
+      )}
     </Layout>
   );
 }

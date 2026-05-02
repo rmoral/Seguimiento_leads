@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, contacts, followups, leads, templates
+from app.api import auth, contacts, email_accounts, followups, leads, messages, templates
 from app.core.config import settings
 
 app = FastAPI(title="Seguimiento Leads API", version="0.1.0")
@@ -25,3 +25,5 @@ app.include_router(leads.router)
 app.include_router(templates.router)
 app.include_router(followups.router)
 app.include_router(contacts.router)
+app.include_router(email_accounts.router)
+app.include_router(messages.router)
