@@ -6,6 +6,7 @@ Aplicación de gestión y seguimiento de leads con plantillas de correo, recorda
 
 **Fase 1 — Esqueleto + CRUD de leads** *(completada)*
 **Fase 2 — Integración Gmail** *(completada)*
+**Fase 3 — Recordatorios automáticos** *(completada)*
 
 - [x] Backend FastAPI + PostgreSQL + Alembic
 - [x] Modelos: Tenant, User, Lead, Contact, Template, FollowUp, EmailAccount
@@ -17,10 +18,25 @@ Aplicación de gestión y seguimiento de leads con plantillas de correo, recorda
 - [x] Envío de correos desde la cuenta conectada (genera Contact saliente)
 - [x] Sincronización del buzón: empareja por dirección de correo, deduplica por message_id, promueve estado del lead a `responded`
 - [x] Abstracción `EmailProvider` lista para añadir Outlook/SMTP
+- [x] Worker Celery + Beat: sincronización de buzones cada 15 min, detección diaria de leads silenciosos, digest diario al usuario
+- [x] Configuración por tenant del umbral de días y activación de recordatorios
 
 Siguientes fases:
-- **Fase 3** — Recordatorios automáticos vía Celery
 - **Fase 4** — Clasificación y propuestas de respuesta con Claude
+
+## Tareas automáticas (Fase 3)
+
+Tres tareas periódicas se ejecutan en el worker Celery:
+
+| Tarea | Frecuencia | Qué hace |
+|---|---|---|
+| `sync_all_inboxes` | cada 15 min | Por cada `EmailAccount` conectada, descarga correos nuevos. Un fallo en una cuenta no detiene las demás. |
+| `create_followups_for_silent_leads` | diaria, 06:00 UTC | Crea un `FollowUp` pendiente para cada lead que lleva más de N días sin respuesta (N por tenant). Saltea leads en estado terminal (`won`/`lost`/`cold`) o que ya tienen un seguimiento pendiente. |
+| `send_daily_digest` | diaria, 07:00 UTC | Envía a cada usuario un correo con la lista de seguimientos pendientes. Usa la cuenta Gmail conectada del propio tenant. No re-envía si ya se envió hoy. |
+
+Cada tenant configura desde **Ajustes → Recordatorios automáticos**:
+- `auto_reminders_enabled`: activa/desactiva la generación
+- `reminder_after_days`: umbral en días (1–365)
 
 ## Stack
 

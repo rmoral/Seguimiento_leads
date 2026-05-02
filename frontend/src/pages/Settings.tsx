@@ -8,10 +8,17 @@ import {
   listEmailAccounts,
   syncAccount,
 } from "../api/emailAccounts";
+import {
+  type TenantSettings,
+  getTenantSettings,
+  updateTenantSettings,
+} from "../api/tenant";
 import { Layout } from "../components/Layout";
 
 export function SettingsPage() {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
+  const [tenant, setTenant] = useState<TenantSettings | null>(null);
+  const [savingTenant, setSavingTenant] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -21,7 +28,9 @@ export function SettingsPage() {
   async function refresh() {
     setLoading(true);
     try {
-      setAccounts(await listEmailAccounts());
+      const [accs, ts] = await Promise.all([listEmailAccounts(), getTenantSettings()]);
+      setAccounts(accs);
+      setTenant(ts);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error");
@@ -33,6 +42,19 @@ export function SettingsPage() {
   useEffect(() => {
     refresh();
   }, []);
+
+  async function saveTenantSettings(patch: Partial<TenantSettings>) {
+    if (!tenant) return;
+    setSavingTenant(true);
+    try {
+      const updated = await updateTenantSettings(patch);
+      setTenant(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error");
+    } finally {
+      setSavingTenant(false);
+    }
+  }
 
   async function onConnectGmail() {
     try {
@@ -78,6 +100,54 @@ export function SettingsPage() {
       )}
 
       {error && <div className="text-red-600 mb-3">{error}</div>}
+
+      {tenant && (
+        <section className="bg-white rounded-lg shadow p-4 mb-6">
+          <h2 className="text-lg font-medium text-slate-800 mb-3">
+            Recordatorios automáticos
+          </h2>
+          <p className="text-sm text-slate-500 mb-4">
+            Cuando un lead lleva sin respuesta más días de los indicados, se
+            crea un seguimiento automático y recibirás un correo diario con
+            todos los pendientes.
+          </p>
+
+          <label className="flex items-center gap-2 mb-4">
+            <input
+              type="checkbox"
+              checked={tenant.auto_reminders_enabled}
+              onChange={(e) =>
+                saveTenantSettings({ auto_reminders_enabled: e.target.checked })
+              }
+              disabled={savingTenant}
+            />
+            <span className="text-sm text-slate-700">
+              Activar recordatorios automáticos
+            </span>
+          </label>
+
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-slate-700">
+              Avisar tras
+              <input
+                type="number"
+                min={1}
+                max={365}
+                defaultValue={tenant.reminder_after_days}
+                onBlur={(e) => {
+                  const n = Number(e.target.value);
+                  if (n !== tenant.reminder_after_days && n >= 1 && n <= 365) {
+                    saveTenantSettings({ reminder_after_days: n });
+                  }
+                }}
+                disabled={savingTenant || !tenant.auto_reminders_enabled}
+                className="mx-2 w-20 border border-slate-300 rounded-md px-2 py-1 text-sm"
+              />
+              días sin respuesta
+            </label>
+          </div>
+        </section>
+      )}
 
       <section className="bg-white rounded-lg shadow p-4 mb-6">
         <div className="flex items-center justify-between mb-3">
